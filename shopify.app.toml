@@ -1,0 +1,32 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "dbb2f1ae689bcdcbba4c07108131ecb9"
+name = "tide-greeting-app"
+handle = "tide-greeting-app"
+application_url = "https://downloads-described-changed-psi.trycloudflare.com"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+dev_store_url = "tide-plus-store.myshopify.com"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "write_orders,write_products"
+
+[auth]
+redirect_urls = [
+  "https://downloads-described-changed-psi.trycloudflare.com/auth/callback",
+  "https://downloads-described-changed-psi.trycloudflare.com/auth/shopify/callback",
+  "https://downloads-described-changed-psi.trycloudflare.com/api/auth/callback"
+]
+
+[webhooks]
+api_version = "2024-07"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks"
+
+[pos]
+embedded = false
