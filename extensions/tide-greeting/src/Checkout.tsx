@@ -28,6 +28,8 @@ import {
   useApplyDiscountCodeChange, reactExtension, Spinner
 } from "@shopify/ui-extensions-react/checkout";
 
+const MAX_GREETING_CHAR = 500;
+
 const checkout = reactExtension("purchase.checkout.block.render", () => <App />);
 export { checkout };
 
@@ -107,18 +109,41 @@ function App() {
 
 
   // SET APP METADATA AND PARSE GREETING CARDS DATA START
-  if (getGreetingAppMeta.length > 0 && localCheckoutMetaData.length < 1)
-    setlocalCheckoutMetaData(getGreetingAppMeta); // SET THE FETCHED METAFIELDS DATA TO LOCAL VAR
-  if (localCheckoutMetaData.length != 0) {
-    const parsedSettings = JSON.parse(localCheckoutMetaData[0]['metafield']['value']);
-    // categories-based structure
-    if (parsedSettings && parsedSettings.greetingCardsData && parsedSettings.greetingCardsData.categories) {
-      if (categoriesData.length === 0) setCategoriesData(parsedSettings.greetingCardsData.categories);
+  useEffect(() => {
+    if (getGreetingAppMeta.length > 0 && localCheckoutMetaData.length < 1) {
+      setlocalCheckoutMetaData(getGreetingAppMeta); // SET THE FETCHED METAFIELDS DATA TO LOCAL VAR
     }
-    // flat fallback if ever needed
-    var allGreetingCardsData = parsedSettings["greetingCardsDataFlat"]; // may be undefined; used only as fallback
-  }
+  }, [getGreetingAppMeta, localCheckoutMetaData.length]);
+
+  useEffect(() => {
+    if (localCheckoutMetaData.length > 0 && categoriesData.length === 0) {
+      try {
+        const parsedSettings = JSON.parse(localCheckoutMetaData[0]['metafield']['value']);
+        // categories-based structure
+        if (parsedSettings && parsedSettings.greetingCardsData && parsedSettings.greetingCardsData.categories) {
+          // Filter categories to only show active ones (status === "1" or status === 1)
+          const activeCategories = parsedSettings.greetingCardsData.categories.filter(
+            (cat) => cat.status === "1" || cat.status === 1
+          );
+          setCategoriesData(activeCategories);
+        }
+      } catch (error) {
+        console.error("Error parsing metafield value:", error);
+      }
+    }
+  }, [localCheckoutMetaData, categoriesData.length]);
   // SET APP METADATA AND PARSE GREETING CARDS DATA END
+
+  // Get allGreetingCardsData for fallback (computed during render)
+  let allGreetingCardsData = [];
+  if (localCheckoutMetaData.length > 0) {
+    try {
+      const parsedSettings = JSON.parse(localCheckoutMetaData[0]['metafield']['value']);
+      allGreetingCardsData = parsedSettings["greetingCardsDataFlat"] || []; // may be undefined; used only as fallback
+    } catch (error) {
+      // Silently fail, allGreetingCardsData will remain empty array
+    }
+  }
 
 
   // FUNCTION TO CLOSE SINGLE OPENED CARD INSIDE THE MODAL ON MODAL CLOSE START
@@ -142,40 +167,76 @@ function App() {
 
 
   // FUNCTION TO MANAGE THE SETTING OF PRESETS TO TEXTAREA START
-  const setGreetingToTextarea = (data) => {
-    var newGreetMsgLength = userAddedgreetingCardMsgData.length + data.length;
-    var charactersleftCount = 500 - newGreetMsgLength;
-    setCharactersLeft(charactersleftCount);
-    if (charactersleftCount < 0) {
-      setCharactersLeft('0');
-    }
-    if (newGreetMsgLength > 501) {
-      setuserAddedgreetingCardMsgDataError(true); // SHOW THE MESSAGE LENGTH VALIDATION ERROR
-      setuserAddedgreetingCardNoMsgDataError(false);
-    }
-    else {
-      setuserAddedgreetingCardMsgDataError(false);
-      setuserAddedgreetingCardNoMsgDataError(false);
-      setuserAddedgreetingCardMsgData(userAddedgreetingCardMsgData + data); // SET THE PRESET IN TEXTAREA BY MERGING IT WITH USER ADDED MESSAGE OR PREVIOUSLY SELECTED PRESET
-    }
-  }
+  // const setGreetingToTextarea = (preset) => {
+  //   if (!preset) return;
 
+  //   const currentMessage = userAddedgreetingCardMsgData || "";
+  //   const remaining = MAX_GREETING_CHAR - currentMessage.length;
+
+  //   if (remaining <= 0) {
+  //     setCharactersLeft(0);
+  //     setuserAddedgreetingCardMsgDataError(true);
+  //     return;
+  //   }
+
+  //   const trimmedPreset = preset.slice(0, remaining);
+  //   const nextMessage = currentMessage + trimmedPreset;
+  //   const nextRemaining = MAX_GREETING_CHAR - nextMessage.length;
+
+  //   setuserAddedgreetingCardMsgData(nextMessage);
+  //   setCharactersLeft(nextRemaining);
+  //   setuserAddedgreetingCardMsgDataError(trimmedPreset.length < preset.length);
+  //   setuserAddedgreetingCardNoMsgDataError(false);
+  // }
+  const setGreetingToTextarea = (preset = "") => {
+    const current = userAddedgreetingCardMsgData || "";
+  
+    // Combine existing + preset
+    let combined = current + preset;
+  
+    // HARD LIMIT (clamp to 500)
+    if (combined.length > MAX_GREETING_CHAR) {
+      combined = combined.slice(0, MAX_GREETING_CHAR);
+    }
+  
+    const remaining = MAX_GREETING_CHAR - combined.length;
+  
+    setuserAddedgreetingCardMsgData(combined);
+    setCharactersLeft(remaining);
+  
+    // Show error only when preset was trimmed
+    setuserAddedgreetingCardMsgDataError(combined.length < current.length + preset.length);
+    setuserAddedgreetingCardNoMsgDataError(false);
+  };
+  
 
   // FUNCTION TO SET THE USER ADDED MESSAGE IN A LOCAL VAR AS SOON THE USER TYPES A CHARACTER FOR LENGTH VALIDATION START
-  const setLiveMsgData = (value) => {
+  // const setLiveMsgData = (value = "") => {
+  //   const input = typeof value === "string" ? value : "";
+  //   const sanitizedValue = input.slice(0, MAX_GREETING_CHAR);
+  //   const remaining = MAX_GREETING_CHAR - sanitizedValue.length;
+  //   const wasTrimmed = sanitizedValue.length !== input.length;
+  //   const hitLimit = sanitizedValue.length >= MAX_GREETING_CHAR;
 
-    var newGreetMsgLength = value.length;
-    var charactersleftCount = 500 - newGreetMsgLength;
-    setCharactersLeft(charactersleftCount);
-    if (charactersleftCount === 0) {
-      setuserAddedgreetingCardNoMsgDataError(false);
-      setuserAddedgreetingCardMsgDataError(true);
-      setuserAddedgreetingCardMsgData(value);
-    } else {
-      setuserAddedgreetingCardMsgDataError(false);
-      setuserAddedgreetingCardMsgData(value);
-    }
-  }
+  //   setuserAddedgreetingCardMsgData(sanitizedValue);
+  //   setCharactersLeft(remaining);
+  //   setuserAddedgreetingCardMsgDataError(wasTrimmed || hitLimit);
+  //   setuserAddedgreetingCardNoMsgDataError(false);
+  // }
+  const setLiveMsgData = (value = "") => {
+    // Always sanitize value first
+    let sanitized = value.slice(0, MAX_GREETING_CHAR);
+  
+    const remaining = MAX_GREETING_CHAR - sanitized.length;
+  
+    setuserAddedgreetingCardMsgData(sanitized);
+    setCharactersLeft(remaining);
+  
+    // Show error when user actually hits the limit
+    setuserAddedgreetingCardMsgDataError(sanitized.length >= MAX_GREETING_CHAR);
+    setuserAddedgreetingCardNoMsgDataError(false);
+  };
+  
   // FUNCTION TO SET THE USER ADDED MESSAGE IN A LOCAL VAR AS SOON THE USER TYPES A CHARACTER FOR LENGTH VALIDATION END
 
 
@@ -266,9 +327,9 @@ function App() {
 
     return (
       <>
-        <Modal size="large" padding title="Select a Greeting Card" id="my-modal" onClose={handleGreetingCardModal}>
+        <Modal size="max" padding title="Select a Greeting Card" id="my-modal" onClose={handleGreetingCardModal}>
           {modalView === 'categories' && !singleGreetingCardStatus ?
-            <ScrollView maxBlockSize={400} direction="block" padding="base">
+            <ScrollView maxBlockSize={500} direction="block" padding="base">
               <Grid
                 columns={Style.default(['auto'])
                   .when({ viewportInlineSize: { min: 'small' } }, ['auto', 'auto'])
@@ -294,7 +355,7 @@ function App() {
               </Grid>
             </ScrollView>
             : modalView === 'cards' && selectedCategory && !singleGreetingCardStatus ?
-              <ScrollView maxBlockSize={400} direction="block" padding="base">
+              <ScrollView maxBlockSize={500} direction="block" padding="base">
                 <InlineLayout columns={['auto', 'fill']}>
                   <View padding="base">
                     <Pressable accessibilityLabel="Back to categories" onPress={() => { setSelectedCategory(null); setModalView('categories'); }}>
@@ -330,7 +391,7 @@ function App() {
               </ScrollView>
               :
               <>
-                <ScrollView maxBlockSize={400} direction="block" padding="base">
+                <ScrollView maxBlockSize={450} direction="block" padding="base">
                   {/* <InlineLayout columns={["40%", "fill"]}> */}
                     <View padding="base" inlineAlignment="center">
                       <Image fit="contain" inlineSize="200" blockSize="160" source={currentOpenedGreetingCardData[1]} />
@@ -339,7 +400,14 @@ function App() {
                       {userAddedgreetingCardMsgDataError ? <Banner status="warning" title="Message Character Limit will be Exceeded." onDismiss={() => { setuserAddedgreetingCardMsgDataError(false) }} /> : null}
                       {userAddedgreetingCardNoMsgDataError ? <Banner status="critical" title="Message Field Cannot be Blank." onDismiss={() => { setuserAddedgreetingCardNoMsgDataError(false) }} /> : null}
                       <BlockSpacer spacing="small100" />
-                      <TextField label="Message" multiline={3} id="greetingMsgfield" value={userAddedgreetingCardMsgData} onInput={(value) => { setLiveMsgData(value); }} maxLength="500" />
+                      <TextField
+                        label="Message"
+                        multiline={3}
+                        id="greetingMsgfield"
+                        value={userAddedgreetingCardMsgData}
+                        onInput={(value) => { setLiveMsgData(value); }}
+                        maxLength={MAX_GREETING_CHAR}
+                      />
                       <TextBlock inlineAlignment='end'>
                         {charactersLeft != undefined || charactersLeft != null ? charactersLeft : 500}/500
                       </TextBlock>
